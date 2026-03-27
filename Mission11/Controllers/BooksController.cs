@@ -17,27 +17,44 @@ public class BooksController : ControllerBase
 
     [HttpGet]
     public async Task<IActionResult> GetBooks(
-        int pageNum = 1, 
-        int pageSize = 5, 
-        string sortOrder = "asc")
+        int pageNum = 1,
+        int pageSize = 5,
+        string sortOrder = "asc",
+        string category = "") // optional filter, empty means show all
     {
         var query = _context.Books.AsQueryable();
 
-        query = sortOrder == "desc" 
-            ? query.OrderByDescending(b => b.Title) 
+        // filter by category if one was passed in
+        if (!string.IsNullOrEmpty(category))
+            query = query.Where(b => b.Category == category);
+
+        // sort by title either direction
+        query = sortOrder == "desc"
+            ? query.OrderByDescending(b => b.Title)
             : query.OrderBy(b => b.Title);
 
+        // get total count before paging so frontend knows how many pages to show
         var totalBooks = await query.CountAsync();
 
+        // grab just the books for the current page
         var books = await query
             .Skip((pageNum - 1) * pageSize)
             .Take(pageSize)
             .ToListAsync();
 
-        return Ok(new
-        {
-            books,
-            totalBooks
-        });
+        return Ok(new { books, totalBooks });
+    }
+
+    // separate endpoint just for getting the list of categories for the filter buttons
+    [HttpGet("categories")]
+    public async Task<IActionResult> GetCategories()
+    {
+        var categories = await _context.Books
+            .Select(b => b.Category)
+            .Distinct()
+            .OrderBy(c => c)
+            .ToListAsync();
+
+        return Ok(categories);
     }
 }

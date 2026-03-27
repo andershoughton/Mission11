@@ -66,3 +66,4 @@
 /Users/andershoughton/RiderProjects/Mission11/Mission11/obj/Debug/net10.0/Mission11.pdb
 /Users/andershoughton/RiderProjects/Mission11/Mission11/obj/Debug/net10.0/Mission11.genruntimeconfig.cache
 /Users/andershoughton/RiderProjects/Mission11/Mission11/obj/Debug/net10.0/ref/Mission11.dll
+/Users/andershoughton/RiderProjects/Mission11/Mission11/obj/Debug/net10.0/Mission11.sourcelink.json

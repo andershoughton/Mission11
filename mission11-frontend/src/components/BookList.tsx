@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useCart } from '../context/CartContext';
 
 interface Book {
   bookId: number;
@@ -12,28 +13,108 @@ interface Book {
   price: number;
 }
 
-function BookList() {
+function BookList({ onGoToCart, initialPage = 1 }: { onGoToCart: (currentPage: number) => void, initialPage?: number }) {
   const [books, setBooks] = useState<Book[]>([]);
-  const [pageNum, setPageNum] = useState(1);
+  const [pageNum, setPageNum] = useState(initialPage);
   const [pageSize, setPageSize] = useState(5);
   const [totalBooks, setTotalBooks] = useState(0);
   const [sortOrder, setSortOrder] = useState('asc');
+  const [categories, setCategories] = useState<string[]>([]);
+  const [selectedCategory, setSelectedCategory] = useState('');
+  const [addedMessage, setAddedMessage] = useState('');
 
+  const { cart, addToCart } = useCart();
   const totalPages = Math.ceil(totalBooks / pageSize);
 
+  // total items in cart for the summary badge
+  const cartCount = cart.reduce((sum, item) => sum + item.quantity, 0);
+  const cartTotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
+
+  // fetch categories once on load
   useEffect(() => {
-    fetch(`http://localhost:5169/api/books?pageNum=${pageNum}&pageSize=${pageSize}&sortOrder=${sortOrder}`)
+    fetch('http://localhost:5169/api/books/categories')
+      .then(res => res.json())
+      .then(data => setCategories(data))
+      .catch(err => console.error('Error fetching categories:', err));
+  }, []);
+
+  // fetch books whenever page, size, sort, or category changes
+  useEffect(() => {
+    const url = `http://localhost:5169/api/books?pageNum=${pageNum}&pageSize=${pageSize}&sortOrder=${sortOrder}&category=${selectedCategory}`;
+    fetch(url)
       .then(res => res.json())
       .then(data => {
         setBooks(data.books);
         setTotalBooks(data.totalBooks);
       })
       .catch(err => console.error('Error fetching books:', err));
-  }, [pageNum, pageSize, sortOrder]);
+  }, [pageNum, pageSize, sortOrder, selectedCategory]);
 
+  function handleCategoryChange(cat: string) {
+    setSelectedCategory(cat);
+    setPageNum(1);
+  }
+  function handleAddToCart(book: Book) {
+    addToCart({ bookId: book.bookId, title: book.title, price: book.price });
+    setAddedMessage(`"${book.title}" added to cart!`);
+    setTimeout(() => setAddedMessage(''), 2000);
+  }
   return (
     <div className="container mt-4">
-      <h1 className="mb-4">Online Bookstore</h1>
+
+      {/* header row with title and cart summary */}
+      <div className="row align-items-center mb-4">
+        <div className="col">
+          <h1>Online Bookstore</h1>
+        </div>
+        <div className="col-auto">
+          {/* cart summary badge */}
+          <button
+            className="btn btn-success position-relative"
+            onClick={() => onGoToCart(pageNum)}
+          >
+            🛒 Cart
+            {cartCount > 0 && (
+              <span className="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
+                {cartCount}
+              </span>
+            )}
+          </button>
+          {cartCount > 0 && (
+            <span className="ms-2 text-muted">
+              {cartCount} item{cartCount > 1 ? 's' : ''} — ${cartTotal.toFixed(2)}
+            </span>
+          )}
+        </div>
+      </div>
+
+      {addedMessage && (
+          <div className="alert alert-success alert-dismissible fade show" role="alert">
+            {addedMessage}
+            <button type="button" className="btn-close" onClick={() => setAddedMessage('')}></button>
+          </div>
+      )}
+
+      {/* category filter buttons */}
+      <div className="mb-3">
+        <button
+          className={`btn btn-sm me-2 mb-2 ${selectedCategory === '' ? 'btn-dark' : 'btn-outline-dark'}`}
+          onClick={() => handleCategoryChange('')}
+        >
+          All
+        </button>
+        {categories.map(cat => (
+          <button
+            key={cat}
+            className={`btn btn-sm me-2 mb-2 ${selectedCategory === cat ? 'btn-dark' : 'btn-outline-dark'}`}
+            onClick={() => handleCategoryChange(cat)}
+          >
+            {cat}
+          </button>
+        ))}
+      </div>
+
+      {/* sort and page size controls */}
       <div className="d-flex gap-3 mb-3">
         <div>
           <label className="me-2">Sort by Title:</label>
@@ -60,7 +141,9 @@ function BookList() {
           </select>
         </div>
       </div>
-      <table className="table table-striped table-bordered">
+
+      {/* books table */}
+      <table className="table table-striped table-bordered table-hover">
         <thead className="table-dark">
           <tr>
             <th>Title</th>
@@ -71,6 +154,7 @@ function BookList() {
             <th>Category</th>
             <th>Pages</th>
             <th>Price</th>
+            <th>Add to Cart</th>
           </tr>
         </thead>
         <tbody>
@@ -84,10 +168,20 @@ function BookList() {
               <td>{book.category}</td>
               <td>{book.pageCount}</td>
               <td>${book.price.toFixed(2)}</td>
+              <td>
+                <button
+                  className="btn btn-primary btn-sm"
+                  onClick={() => handleAddToCart(book)}
+                >
+                  Add to Cart
+                </button>
+              </td>
             </tr>
           ))}
         </tbody>
       </table>
+
+      {/* pagination */}
       <nav>
         <ul className="pagination">
           <li className={`page-item ${pageNum === 1 ? 'disabled' : ''}`}>
